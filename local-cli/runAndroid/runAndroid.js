@@ -15,17 +15,17 @@ const fs = require('fs');
 const isPackagerRunning = require('../util/isPackagerRunning');
 const path = require('path');
 
-// Verifies this is an Android project
-function checkAndroid(root) {
-  return fs.existsSync(path.join(root, 'android/gradlew'));
+// Verifies the existence of the gradle wrapper
+function checkGradle(root, gradleProject) {
+  return fs.existsSync(path.join(root, gradleProject, 'gradlew'));
 }
 
 /**
  * Starts the app on a connected Android emulator or device.
  */
 function runAndroid(argv, config, args) {
-  if (!checkAndroid(args.root)) {
-    console.log(chalk.red('Android project not found. Maybe run react-native android first?'));
+  if (!checkGradle(args.root, args.gradleProject)) {
+    console.log(chalk.red('Gradle wrapper not found. Maybe run react-native android first?'));
     return;
   }
 
@@ -101,7 +101,7 @@ function buildAndRun(args) {
       gradleArgs[0] + args.configuration[0].toUpperCase() + args.configuration.slice(1);
 
     // Get the Android project directory.
-    const androidProjectDir = path.join(args.root, 'android');
+    const androidProjectDir = path.join(args.root, args.androidProject);
 
     if (args.configuration.toUpperCase() === 'RELEASE') {
       console.log(chalk.bold(
@@ -122,7 +122,7 @@ function buildAndRun(args) {
     }
 
     // Change to the Android directory.
-    process.chdir(androidProjectDir);
+    process.chdir(args.gradleProject);
 
     // Get the gradle binary for the current platform.
     const cmd = process.platform.startsWith('win')
@@ -131,7 +131,7 @@ function buildAndRun(args) {
 
     console.log(chalk.bold(
       'Building and installing the app on the device ' +
-      `(cd android && ${cmd} ${gradleArgs.join(' ')})...`
+      `(cd ${args.gradleProject} && ${cmd} ${gradleArgs.join(' ')})...`
     ));
 
     child_process.execFileSync(cmd, gradleArgs, {
@@ -152,7 +152,7 @@ function buildAndRun(args) {
 
   try {
     const packageName = fs.readFileSync(
-      'app/src/main/AndroidManifest.xml',
+      path.join(args.root, args.androidProject, 'app/src/main/AndroidManifest.xml'),
       'utf8'
     ).match(/package="(.+?)"/)[1];
 
@@ -238,6 +238,16 @@ module.exports = {
       'Override the root directory for the android build ' +
       '(which contains the android directory)',
     default: '',
+  }, {
+    command: '--android-project [string]',
+    description:
+      'Override where the android project is located with respect to the gradle root.',
+    default: 'android',
+  }, {
+    command: '--gradle-project [string]',
+    description:
+      'Override where the root gradle project is located.',
+    default: 'android',
   }, {
     command: '--flavor [string]',
     description: '--flavor has been deprecated. Use --variant instead',
